@@ -1,17 +1,27 @@
 import peasy.*;
 int AXES_DISTANCE = 1000;
-float MULT_FACTOR = 100;
-float MAX_FORCE = 0.02 * MULT_FACTOR;
+float MULT_FACTOR = 10;
+float MAX_FORCE = 0.2 * MULT_FACTOR;
 float MAX_SPEED = 2 * MULT_FACTOR;
-float _RADIUS = 200;
-int countTime=0;
+float _RADIUS = 400;
+int LOWERBOUND = -(AXES_DISTANCE - 50);
+int UPPERBOUND = AXES_DISTANCE - 50;
 PeasyCam camera;
 Flock flock;
+
+PVector generateRandomPosition() {
+  float x = random(LOWERBOUND, UPPERBOUND);
+  float y = random(LOWERBOUND, UPPERBOUND);
+  float z = random(LOWERBOUND, UPPERBOUND);
+  return new PVector(x, y, z);
+}
+
 void setup() {
   size(1024, 1024, P3D);
   camera = new PeasyCam(this, AXES_DISTANCE*3.5);
-  flock = new Flock(1000);
+  flock = new Flock(500);
 }
+
 void draw() {
   background(255);
   draw_environment();
@@ -33,10 +43,12 @@ void draw_environment() {
   stroke(0);
   box(AXES_DISTANCE*2, AXES_DISTANCE*2, AXES_DISTANCE*2);
 }
+
 class Boid {
   PVector location;
   PVector velocity;
   PVector acceleration;
+
   Boid(float x, float y, float z) {
     location = new PVector(x, y, z);
     acceleration = new PVector(0, 0, 0);
@@ -52,15 +64,26 @@ class Boid {
   }
   void applyForce(PVector force) {
     acceleration.add(force);
-  }
+  }  
   void step() {
-    velocity.mult(1);
+    boundaries();
     velocity.add(acceleration);
     velocity.limit(MAX_SPEED);
     location.add(velocity);
     acceleration.mult(0);
   }
-  void display() { 
+  void boundaries() {
+    if (location.x > UPPERBOUND || location.x < LOWERBOUND) {
+      velocity.x = -velocity.x;
+    }
+    if (location.y > UPPERBOUND || location.y < LOWERBOUND) {
+      velocity.y = -velocity.y;
+    }
+    if (location.z > UPPERBOUND || location.z < LOWERBOUND) {
+      velocity.z = -velocity.z;
+    }
+  }
+  void display() {  
     fill(50);
     pushMatrix();
     translate(location.x, location.y, location.z);
@@ -83,6 +106,23 @@ class Boid {
     acc.div(count);
     return acc;
   }
+  PVector separation(Boid[] boids) {
+    PVector sep = new PVector();
+    int count = 0;
+    for (int i = 0; i < boids.length; i++) {
+      float dist = location.dist(boids[i].location);
+      if (dist <= (_RADIUS/5) && dist > 0.001) {
+        PVector dv = (this.location.sub(boids[i].location));
+        sep.add(dv);
+        count++;
+      }
+    }
+    if (count == 0) {
+      return location;
+    }
+    sep.div(count);
+    return sep;
+  }
 }
 class Flock {
   Boid[] boids;
@@ -94,35 +134,16 @@ class Flock {
     }
   }
   void step() {
-    PVector base= new PVector(0, 0, 0);
     for (int i = 0; i < boids.length; i++) {
       PVector cohesion = boids[i].cohesion(boids);
       PVector steerForce = boids[i].steer(cohesion);
       boids[i].applyForce(steerForce);
-      PVector baseForce = boids[i].steer(base);
       boids[i].step();
-      if (boids[i].location.x>AXES_DISTANCE||
-        boids[i].location.y>AXES_DISTANCE||
-        boids[i].location.z>AXES_DISTANCE||
-        boids[i].location.x<-AXES_DISTANCE||
-        boids[i].location.y<-AXES_DISTANCE||
-        boids[i].location.z<-AXES_DISTANCE) {
-        boids[i].applyForce(baseForce);
-      }
     }
   }
   void display() {
     for (int i = 0; i < boids.length; i++) {
       boids[i].display();
     }
-  }
-  PVector generateRandomPosition() {
-    int lowerbound=-(AXES_DISTANCE-10);
-    int upperbound=AXES_DISTANCE-10;
-    float x=random(lowerbound, upperbound);
-    float y=random(lowerbound, upperbound);
-    float z=random(lowerbound, upperbound);
-    PVector v=new PVector(x, y, z);
-    return v;
   }
 }
